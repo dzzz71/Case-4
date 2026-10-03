@@ -114,23 +114,225 @@ classDiagram
 
 // Arreglar código spaghetti y acoplamiento de la clase BankingService, y explicar solución:
 
-### SPEC
-class Identity {
-    -IdentityType type
-    -String documentNumber
-    -String accountNumber
-    -String companyName
-    -String guardianUserId
-    -String countryCode
-    -LocalDate residencyExpiresOn
+#### SPEC // corregido
+class User
+-String id
+-String fullName
+-ListIdentity identities
++addIdentity(Identity)
++findIdentity(IdentityType) Identity
+
+class Identity
+-IdentityType type
+-String documentNumber
+-String accountNumber
+-String companyName
+-String guardianUserId
+-String countryCode
+-LocalDate residencyExpiresOn
+
+class BankOperation
+-OperationType type
+-double amount
+-String destinationAccount
+-String destinationBic
+-String currency
+-String approvalCode
+-List~String~ payrollAccounts
+
+class BankingService
+-DailyUsageTracker dailyUsageTracker
+-AuditLog auditLog
++execute(User, IdentityType, BankOperation, String, LocalDate) OperationResult
+// Sin ifs o los switches, básciamente se le da a las interfaces ejecutando el comportamiento específico:
+// IdentityRuleValidator validator = registry.get(identity.getType()); validator.isOperationAllowed();    esto para las reglas de identidad
+// PaymentProcessor processor = registry.get(processorKey); processor.process(identity, operation);       esto para los procesadores de pago
+
+class PaymentProcessor
+-interface
++process(Identity, BankOperation) OperationResult
+
+class NationalBankAdapter
+-NationalBankProcessor externalApi
++process(Identity, BankOperation) OperationResult
+
+class PacificBankAdapter
+-PacificBankProcessor externalApi
++process(Identity, BankOperation) OperationResult
+
+class SwiftGatewayAdapter
+-SwiftGatewayProcessor externalApi
++process(Identity, BankOperation) OperationResult
+
+class NationalBankProcessor
++postTransaction(String, String, double, String) String
+
+class PacificBankProcessor
++submit(String, String, long, String) String
++submitPayroll(String, List~String~, long) String
+
+class SwiftGatewayProcessor
++sendWire(String, String, String, double, String) String
+
+class IdentityRuleValidator
+-interface
++isOperationAllowed(OperationType) boolean
++checkSpecificRules(Identity, BankOperation, LocalDate) String
++getDailyLimit() double
+
+class PersonalIdentityValidator
++isOperationAllowed(OperationType) boolean
++checkSpecificRules(Identity, BankOperation, LocalDate) String
++getDailyLimit() double
+
+class BusinessIdentityValidator
++isOperationAllowed(OperationType) boolean
++checkSpecificRules(Identity, BankOperation, LocalDate) String
++getDailyLimit() double
+
+class MinorIdentityValidator
++isOperationAllowed(OperationType) boolean
++checkSpecificRules(Identity, BankOperation, LocalDate) String
++getDailyLimit() double
+
+class ForeignResidentIdentityValidator
++isOperationAllowed(OperationType) boolean
++checkSpecificRules(Identity, BankOperation, LocalDate) String
++getDailyLimit() double
+
+#### Fragmento de código:
+public OperationResult execute(User user, IdentityType identityType, BankOperation operation, String processorKey, LocalDate date) {
+    Identity identity = user.findIdentity(identityType);
+    IdentityRuleValidator validator = validatorRegistry.get(identityType);
+    if (!validator.isOperationAllowed(operation.getType())) {
+        return OperationResult.failure("Operation not allowed");
+    }
+    PaymentProcessor processor = processorRegistry.get(processorKey);
+    return processor.process(identity, operation);
 }
 
-class BankOperation {
-    -OperationType type
-    -double amount
-    -String destinationAccount
-    -String destinationBic
-    -String currency
-    -String approvalCode
-    -List~String~ payrollAccounts
-}
+#### Mermaid nuevo:
+classDiagram
+    class IdentityType {
+        <<enumeration>>
+        PERSONAL
+        BUSINESS
+        MINOR
+        FOREIGN_RESIDENT
+    }
+    class OperationType {
+        <<enumeration>>
+        DEPOSIT
+        WITHDRAWAL
+        DOMESTIC_TRANSFER
+        INTERNATIONAL_TRANSFER
+        PAYROLL
+    }
+    class User {
+        -String id
+        -String fullName
+        -List~Identity~ identities
+        +addIdentity(Identity)
+        +findIdentity(IdentityType) Identity
+    }
+    class Identity {
+        -IdentityType type
+        -String documentNumber
+        -String accountNumber
+        -String companyName
+        -String guardianUserId
+        -String countryCode
+        -LocalDate residencyExpiresOn
+    }
+    class BankOperation {
+        -OperationType type
+        -double amount
+        -String destinationAccount
+        -String destinationBic
+        -String currency
+        -String approvalCode
+        -List~String~ payrollAccounts
+    }
+    class BankingService {
+        -DailyUsageTracker dailyUsageTracker
+        -AuditLog auditLog
+        +execute(User, IdentityType, BankOperation, String, LocalDate) OperationResult
+    }
+    class PaymentProcessor {
+        <<interface>>
+        +process(Identity, BankOperation) OperationResult
+    }
+    class NationalBankAdapter {
+        -NationalBankProcessor externalApi
+        +process(Identity, BankOperation) OperationResult
+    }
+    class PacificBankAdapter {
+        -PacificBankProcessor externalApi
+        +process(Identity, BankOperation) OperationResult
+    }
+    class SwiftGatewayAdapter {
+        -SwiftGatewayProcessor externalApi
+        +process(Identity, BankOperation) OperationResult
+    }
+    class NationalBankProcessor {
+        +postTransaction(String, String, double, String) String
+    }
+    class PacificBankProcessor {
+        +submit(String, String, long, String) String
+        +submitPayroll(String, List~String~, long) String
+    }
+    class SwiftGatewayProcessor {
+        +sendWire(String, String, String, double, String) String
+    }
+    class IdentityRuleValidator {
+        <<interface>>
+        +isOperationAllowed(OperationType) boolean
+        +checkSpecificRules(Identity, BankOperation, LocalDate) String
+        +getDailyLimit() double
+    }
+    class PersonalIdentityValidator {
+        +isOperationAllowed(OperationType) boolean
+        +checkSpecificRules(Identity, BankOperation, LocalDate) String
+        +getDailyLimit() double
+    }
+    class BusinessIdentityValidator {
+        +isOperationAllowed(OperationType) boolean
+        +checkSpecificRules(Identity, BankOperation, LocalDate) String
+        +getDailyLimit() double
+    }
+    class MinorIdentityValidator {
+        +isOperationAllowed(OperationType) boolean
+        +checkSpecificRules(Identity, BankOperation, LocalDate) String
+        +getDailyLimit() double
+    }
+    class ForeignResidentIdentityValidator {
+        +isOperationAllowed(OperationType) boolean
+        +checkSpecificRules(Identity, BankOperation, LocalDate) String
+        +getDailyLimit() double
+    }
+    class DailyUsageTracker
+    class AuditLog
+    class OperationResult
+
+    User *-- "1..*" Identity
+    Identity --> IdentityType
+    BankOperation --> OperationType
+    BankingService --> User
+    BankingService --> BankOperation
+    BankingService --> OperationResult
+    BankingService *-- DailyUsageTracker
+    BankingService *-- AuditLog
+    BankingService --> PaymentProcessor
+    BankingService --> IdentityRuleValidator
+    PaymentProcessor <|.. NationalBankAdapter
+    PaymentProcessor <|.. PacificBankAdapter
+    PaymentProcessor <|.. SwiftGatewayAdapter
+    NationalBankAdapter --> NationalBankProcessor
+    PacificBankAdapter --> PacificBankProcessor
+    SwiftGatewayAdapter --> SwiftGatewayProcessor
+    IdentityRuleValidator <|.. PersonalIdentityValidator
+    IdentityRuleValidator <|.. BusinessIdentityValidator
+    IdentityRuleValidator <|.. MinorIdentityValidator
+    IdentityRuleValidator <|.. ForeignResidentIdentityValidator
+
+// diagrama en carpeta
